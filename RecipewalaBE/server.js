@@ -39,13 +39,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Allow CORS for static uploads
+// Allow CORS for static uploads and serve from src/uploads
 app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
-  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Origin', '*'); // Allow all origins for images
+  // Do NOT set Access-Control-Allow-Credentials for public images
   next();
-});
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}, express.static(path.join(__dirname, 'src', 'uploads')));
 
 // Routes
 
