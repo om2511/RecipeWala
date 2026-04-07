@@ -72,11 +72,11 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+      <div className="flex w-full max-w-6xl max-h-[92vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900">Edit Meal Plan</h2>
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-4 sm:p-6 flex-shrink-0">
+          <h2 className="text-lg font-bold text-gray-900 sm:text-xl">Edit Meal Plan</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
@@ -84,10 +84,10 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
 
         {/* Tabs */}
         <div className="border-b border-gray-200 flex-shrink-0">
-          <div className="flex space-x-0">
+          <div className="grid grid-cols-2 gap-1 p-2 sm:flex sm:gap-0 sm:p-0">
             <button
               onClick={() => setActiveTab('details')}
-              className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+              className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:rounded-none sm:px-6 sm:py-3 sm:text-base sm:border-b-2 ${
                 activeTab === 'details'
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -97,7 +97,7 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
             </button>
             <button
               onClick={() => setActiveTab('meals')}
-              className={`px-6 py-3 font-medium border-b-2 transition-colors ${
+              className={`rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:rounded-none sm:px-6 sm:py-3 sm:text-base sm:border-b-2 ${
                 activeTab === 'meals'
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -109,9 +109,9 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {activeTab === 'details' ? (
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+            <form onSubmit={handleSubmit} className="max-w-md space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Plan Name
@@ -157,15 +157,15 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
             </form>
           ) : (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Plan Your Meals</h3>
-                <p className="text-sm text-gray-600">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-base font-semibold text-gray-900 sm:text-lg">Plan Your Meals</h3>
+                <p className="text-xs text-gray-600 sm:text-sm">
                   Drag and drop recipes or click to add meals for each day
                 </p>
               </div>
 
               {/* Meal Planning Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {Array.from({ length: duration }, (_, dayIndex) => {
                   const dayNumber = dayIndex + 1
                   const dayKey = `day${dayNumber}`
@@ -189,18 +189,18 @@ const EditMealPlanModal = ({ mealPlan, onClose, onSave, recipes }) => {
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex space-x-3 p-6 border-t border-gray-200 flex-shrink-0">
+        <div className="flex flex-col gap-3 border-t border-gray-200 p-4 sm:flex-row sm:p-6 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             onClick={handleSubmit}
-            className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            className="flex-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
           >
             Update Meal Plan
           </button>
@@ -227,7 +227,7 @@ const MealPlanDay = ({ dayNumber, meals, recipes, mealTypes, onAddMeal, onRemove
 
   return (
     <div className="bg-gray-50 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <h4 className="font-semibold text-gray-900">Day {dayNumber}</h4>
         <button
           onClick={() => setShowAddMeal(true)}
@@ -317,11 +317,11 @@ const MealPlanDay = ({ dayNumber, meals, recipes, mealTypes, onAddMeal, onRemove
               </select>
             </div>
             
-            <div className="flex space-x-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
               <button
                 onClick={handleAddMeal}
                 disabled={!selectedRecipe}
-                className="flex-1 px-3 py-1 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded bg-orange-500 px-3 py-1 text-sm text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Add
               </button>
@@ -331,7 +331,7 @@ const MealPlanDay = ({ dayNumber, meals, recipes, mealTypes, onAddMeal, onRemove
                   setSelectedRecipe('')
                   setSelectedMealType('breakfast')
                 }}
-                className="flex-1 px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                className="flex-1 rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
@@ -394,22 +394,22 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
   const isDefaultCollection = collection.isDefault === true
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+      <div className="flex w-full max-w-2xl max-h-[92vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900">Edit Collection</h2>
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-4 sm:p-6 flex-shrink-0">
+          <h2 className="text-lg font-bold text-gray-900 sm:text-xl">Edit Collection</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Collection Name
                 </label>
                 <input
@@ -432,7 +432,7 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Color
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -456,7 +456,7 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Description
               </label>
               <textarea
@@ -478,7 +478,7 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="mb-3 block text-sm font-medium text-gray-700">
                 Recipes ({selectedRecipeIds.length} selected)
               </label>
               
@@ -547,11 +547,11 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex space-x-3 p-6 border-t border-gray-200 flex-shrink-0">
+          <div className="flex flex-col gap-3 border-t border-gray-200 p-4 sm:flex-row sm:p-6 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -573,7 +573,7 @@ const EditCollectionModal = ({ collection, onClose, onSave, recipes }) => {
                 updatedAt: new Date().toISOString()
               })
             }}
-            className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isDefaultCollection}
           >
             {isDefaultCollection ? 'Cannot Edit Default' : 'Update Collection'}
@@ -613,18 +613,18 @@ const CreateCollectionModal = ({ onClose, onSave }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Create Collection</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+      <div className="flex w-full max-w-md max-h-[92vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-4 sm:p-6">
+          <h2 className="text-lg font-bold text-gray-900 sm:text-xl">Create Collection</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Collection Name
             </label>
             <input
@@ -638,7 +638,7 @@ const CreateCollectionModal = ({ onClose, onSave }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Description
             </label>
             <textarea
@@ -651,16 +651,16 @@ const CreateCollectionModal = ({ onClose, onSave }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Color
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
               {colors.map(colorOption => (
                 <button
                   key={colorOption}
                   type="button"
                   onClick={() => setColor(colorOption)}
-                  className={`w-8 h-8 rounded-full border-2 ${
+                  className={`h-8 w-8 rounded-full border-2 justify-self-center ${
                     color === colorOption ? 'border-gray-800' : 'border-gray-200'
                   }`}
                   style={{ backgroundColor: colorOption }}
@@ -669,17 +669,17 @@ const CreateCollectionModal = ({ onClose, onSave }) => {
             </div>
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              className="flex-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
             >
               Create Collection
             </button>
@@ -713,18 +713,18 @@ const CreateMealPlanModal = ({ onClose, onSave, recipes }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Create Meal Plan</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+      <div className="flex w-full max-w-md max-h-[92vh] flex-col overflow-hidden rounded-lg bg-white shadow-xl sm:max-h-[90vh]">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 p-4 sm:p-6">
+          <h2 className="text-lg font-bold text-gray-900 sm:text-xl">Create Meal Plan</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Plan Name
             </label>
             <input
@@ -738,7 +738,7 @@ const CreateMealPlanModal = ({ onClose, onSave, recipes }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Description
             </label>
             <textarea
@@ -751,7 +751,7 @@ const CreateMealPlanModal = ({ onClose, onSave, recipes }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Duration (days)
             </label>
             <select
@@ -766,17 +766,17 @@ const CreateMealPlanModal = ({ onClose, onSave, recipes }) => {
             </select>
           </div>
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              className="flex-1 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
             >
               Create Meal Plan
             </button>
@@ -1301,36 +1301,36 @@ const CollectionCard = ({ collection, recipes, viewMode, onEdit, onDelete, onVie
 
   if (viewMode === 'list') {
     return (
-      <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
           <div 
-            className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg text-white"
             style={{ backgroundColor: collection.color }}
           >
             <Folder className="h-6 w-6" />
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{collection.name}</h3>
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold text-gray-900">{collection.name}</h3>
             <p className="text-sm text-gray-600">{collectionRecipes.length} recipes</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button
             onClick={onView}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="rounded-md px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             View
           </button>
           <button
             onClick={onEdit}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             <Edit2 className="h-4 w-4" />
           </button>
           {!collection.isDefault && (
             <button
               onClick={onDelete}
-              className="p-2 text-red-600 hover:text-red-700 transition-colors"
+              className="rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -1417,32 +1417,32 @@ const MealPlanCard = ({ mealPlan, recipes, viewMode, onEdit, onDelete, onView })
 
   if (viewMode === 'list') {
     return (
-      <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center text-white">
+      <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-green-500 text-white">
             <Calendar className="h-6 w-6" />
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{mealPlan.name}</h3>
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold text-gray-900">{mealPlan.name}</h3>
             <p className="text-sm text-gray-600">{totalRecipes} meals planned</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button
             onClick={onView}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="rounded-md px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             View
           </button>
           <button
             onClick={onEdit}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           >
             <Edit2 className="h-4 w-4" />
           </button>
           <button
             onClick={onDelete}
-            className="p-2 text-red-600 hover:text-red-700 transition-colors"
+            className="rounded-md p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -1661,7 +1661,7 @@ const Collections = () => {
       {/* Main Content - space-y-6 only affects this container */}
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center flex-wrap gap-4 justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Recipe Collections</h1>
             <p className="text-gray-600">Organize your recipes and plan your meals</p>
@@ -1704,20 +1704,20 @@ const Collections = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="border-b border-gray-200">
-            <div className="flex space-x-0">
+            <div className="flex min-w-full gap-1 overflow-x-auto px-2 sm:px-0">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-3 font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors sm:px-6 sm:text-base ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <tab.icon className="h-4 w-4" />
+                  <tab.icon className="h-4 w-4 shrink-0" />
                   <span>{tab.label}</span>
-                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                  <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
                     {tab.count}
                   </span>
                 </button>

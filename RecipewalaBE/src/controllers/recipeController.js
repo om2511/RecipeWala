@@ -1,58 +1,213 @@
 const Recipe = require('../models/Recipe');
 const geminiConfig = require('../config/gemini');
-const imageService = require('../services/imageService');
 const logger = require('../utils/logger');
 const { responseHandler } = require('../utils/responseHandler');
 
-const generateRecipe = async (req, res) => {
+// Simplified data sanitization (essential only)
+const sanitizeRecipeData = (recipeData) => {
     try {
-        const { recipeName } = req.body;
+        return {
+            name: String(recipeData.name || 'Untitled Recipe').trim(),
+            description: String(recipeData.description || 'A delicious recipe').trim(),
+            prepTime: String(recipeData.prepTime || '15 minutes').trim(),
+            cookTime: String(recipeData.cookTime || '30 minutes').trim(),
+            servings: recipeData.servings || 4,
+            difficulty: ['Easy', 'Medium', 'Hard'].includes(recipeData.difficulty) ? recipeData.difficulty : 'Medium',
+            ingredients: Array.isArray(recipeData.ingredients) ? recipeData.ingredients.map(ing => ({
+                item: String(ing.item || ing.ingredient || '').trim(),
+                amount: String(ing.amount || '1').trim(),
+                unit: String(ing.unit || 'piece').trim()
+            })) : [],
+            instructions: Array.isArray(recipeData.instructions) ? recipeData.instructions.map((inst, index) => ({
+                step: index + 1,
+                instruction: String(inst.instruction || inst.text || inst).trim()
+            })) : [],
+            tips: Array.isArray(recipeData.tips) ? recipeData.tips.map(tip => String(tip).trim()) : [],
+            // CRITICAL: All nutrition as strings to avoid validation errors
+            nutrition: {
+                calories: String(recipeData.nutrition?.calories || 'Not specified'),
+                protein: String(recipeData.nutrition?.protein || 'Not specified'),
+                carbs: String(recipeData.nutrition?.carbs || 'Not specified'),
+                fat: String(recipeData.nutrition?.fat || 'Not specified')
+            },
+            tags: Array.isArray(recipeData.tags) ? recipeData.tags : [],
+            cuisine: recipeData.cuisine ? String(recipeData.cuisine).trim() : null
+        };
+    } catch (error) {
+        logger.error('Data sanitization error:', error);
+        throw new Error('Failed to sanitize recipe data');
+    }
+};
+
+const normalizeDifficulty = (difficulty) => {
+    const value = String(difficulty || '').trim().toLowerCase();
+
+    if (value === 'easy') return 'Easy';
+    if (value === 'medium') return 'Medium';
+    if (value === 'hard') return 'Hard';
+
+    return 'Medium';
+};
+
+const generateSmartFallbackRecipe = (recipeName, options = {}) => {
+    const cuisine = options.cuisine ? String(options.cuisine).trim() : 'International';
+    const servings = Number(options.servings) || 4;
+    const difficulty = normalizeDifficulty(options.difficulty);
+    const description = `A flavorful ${cuisine.toLowerCase()} style ${recipeName.toLowerCase()} that is quick to prepare and easy to enjoy.`;
+
+    const ingredients = [
+        { item: recipeName, amount: '1', unit: 'main portion' },
+        { item: 'Onion', amount: '1', unit: 'medium' },
+        { item: 'Garlic', amount: '2', unit: 'cloves' },
+        { item: 'Tomato', amount: '2', unit: 'medium' },
+        { item: 'Oil', amount: '2', unit: 'tbsp' }
+    ];
+
+    const instructions = [
+        { step: 1, instruction: `Prep all ingredients for the ${recipeName} and keep them ready.` },
+        { step: 2, instruction: 'Heat oil in a pan and sauté the aromatics until fragrant.' },
+        { step: 3, instruction: `Add the main ingredients and cook until well combined and heated through.` },
+        { step: 4, instruction: 'Season to taste, finish with fresh herbs if available, and serve warm.' }
+    ];
+
+    return {
+        name: recipeName,
+        description,
+        prepTime: '15 minutes',
+        cookTime: '30 minutes',
+        servings,
+        difficulty,
+        ingredients,
+        instructions,
+        tips: [
+            'Adjust seasoning at the end for the best flavor.',
+            'Serve immediately for the freshest taste.'
+        ],
+        nutrition: {
+            calories: '250 per serving',
+            protein: '12g',
+            carbs: '28g',
+            fat: '10g'
+        },
+        tags: [recipeName.toLowerCase(), cuisine.toLowerCase(), difficulty.toLowerCase()],
+        cuisine,
+    };
+};
+
+const generateRecipe = async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+        const { recipeName, cuisine, dietaryRestrictions, servings, cookingTime, difficulty, instructions } = req.body;
         const userId = req.user._id;
 
-        // Check if recipe with same name already exists for this user
+        logger.info(`[${Date.now() - startTime}ms] Starting recipe generation for: "${recipeName}" by user: ${req.user.email}`);
+
+        // Quick validation
+        if (!recipeName || recipeName.trim().length < 3) {
+            return responseHandler.error(res, 'Recipe name must be at least 3 characters long', 400);
+        }
+
+        if (recipeName.trim().length > 200) {
+            return responseHandler.error(res, 'Recipe name must be less than 200 characters', 400);
+        }
+
+        // Check for existing recipe
         const existingRecipe = await Recipe.findOne({ 
-            name: recipeName.trim(), 
+            name: { $regex: new RegExp(`^${recipeName.trim()}$`, 'i') }, 
             user: userId 
         });
 
         if (existingRecipe) {
-            return responseHandler.error(res, 'Recipe with this name already exists', 400);
+            return responseHandler.error(res, 'You already have a recipe with this name. Please choose a different name.', 400);
         }
 
-        // Check Gemini service availability
-        const isGeminiAvailable = await geminiConfig.isServiceAvailable();
-        if (!isGeminiAvailable) {
-            return responseHandler.error(res, 'Recipe generation service is currently unavailable', 503);
+        logger.info(`[${Date.now() - startTime}ms] Database check completed`);
+
+        // Prepare enhanced prompt
+        let enhancedPrompt = recipeName.trim();
+        if (cuisine) enhancedPrompt += ` (${cuisine} cuisine)`;
+        if (dietaryRestrictions?.length) enhancedPrompt += ` - ${dietaryRestrictions.join(', ')} friendly`;
+        if (servings && servings !== 4) enhancedPrompt += ` for ${servings} servings`;
+        if (cookingTime) enhancedPrompt += ` ready in ${cookingTime}`;
+        if (difficulty) enhancedPrompt += ` (${difficulty} difficulty level)`;
+        if (instructions) enhancedPrompt += `. Special: ${instructions}`;
+
+        logger.info(`[${Date.now() - startTime}ms] Attempting Gemini generation...`);
+
+        let recipeData;
+        let usingFallback = false;
+
+        // Try Gemini first, but with short timeout
+        try {
+            recipeData = await Promise.race([
+                geminiConfig.generateRecipe(enhancedPrompt),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Gemini timeout - switching to fallback')), 20000) // 20 seconds
+                )
+            ]);
+            logger.info(`[${Date.now() - startTime}ms] ✅ Gemini generation successful`);
+        } catch (geminiError) {
+            logger.warn(`[${Date.now() - startTime}ms] Gemini failed, using fallback: ${geminiError.message}`);
+            
+            // Generate smart fallback recipe
+            recipeData = generateSmartFallbackRecipe(recipeName.trim(), {
+                cuisine,
+                dietaryRestrictions,
+                servings: servings || 4,
+                cookingTime,
+                difficulty,
+                instructions
+            });
+            usingFallback = true;
         }
 
-        // Generate recipe using Gemini
-        logger.info(`Generating recipe for: ${recipeName} by user: ${req.user.email}`);
-        const recipeData = await geminiConfig.generateRecipe(recipeName);
-
-        // Ensure every ingredient has a unit
-        if (Array.isArray(recipeData.ingredients)) {
-            recipeData.ingredients = recipeData.ingredients.map(ing => ({
-                ...ing,
-                unit: ing.unit || 'to taste'
-            }));
+        if (!recipeData) {
+            logger.error(`[${Date.now() - startTime}ms] Both Gemini and fallback failed`);
+            return responseHandler.error(res, 'Failed to generate recipe. Please try again.', 500);
         }
 
-        // Create recipe in database WITHOUT waiting for image generation
-        const recipe = new Recipe({
-            ...recipeData,
+        logger.info(`[${Date.now() - startTime}ms] Recipe data generated (${usingFallback ? 'fallback' : 'Gemini'})`);
+
+        // Sanitize data
+        const sanitizedData = sanitizeRecipeData(recipeData);
+        
+        // Apply user preferences
+        if (servings) sanitizedData.servings = servings;
+        if (difficulty) sanitizedData.difficulty = normalizeDifficulty(difficulty);
+
+        // Create recipe object
+        const recipeObject = {
+            ...sanitizedData,
             user: userId,
-            originalPrompt: recipeName.trim(),
+            originalPrompt: enhancedPrompt,
             isFavorite: false,
             imageUrl: null,
             imageGenerated: false,
-            imageGenerationFailed: false, // Track failed attempts
-            imageGenerationAttempts: 0    // Track number of attempts
-        });
+            imageGenerationFailed: false,
+            imageGenerationAttempts: 0,
+            imageGenerationInProgress: false,
+            // Mark if using fallback
+            generationMethod: usingFallback ? 'fallback' : 'gemini',
+            userPreferences: {
+                cuisine: cuisine || null,
+                dietaryRestrictions: dietaryRestrictions || [],
+                servings: servings || null,
+                cookingTime: cookingTime || null,
+                difficulty: difficulty ? String(difficulty).trim().toLowerCase() : null,
+                specialInstructions: instructions || null
+            }
+        };
 
+        logger.info(`[${Date.now() - startTime}ms] Starting database save`);
+
+        // Save to database
+        const recipe = new Recipe(recipeObject);
         await recipe.save();
-        logger.info(`Recipe generated and saved: ${recipe._id}`);
+        
+        logger.info(`[${Date.now() - startTime}ms] Recipe saved successfully: ${recipe._id}`);
 
-        // Prepare response data immediately
+        // Prepare response
         const responseRecipe = {
             _id: recipe._id,
             id: recipe._id.toString(),
@@ -68,97 +223,61 @@ const generateRecipe = async (req, res) => {
             tips: recipe.tips,
             nutrition: recipe.nutrition,
             originalPrompt: recipe.originalPrompt,
-            isFavorite: recipe.isFavorite || false,
+            isFavorite: recipe.isFavorite,
             tags: recipe.tags || [],
             cuisine: recipe.cuisine,
-            imageUrl: recipe.imageUrl,
-            thumbnailUrl: recipe.thumbnailUrl,
-            imageGenerated: recipe.imageGenerated || false,
-            imageGenerationFailed: recipe.imageGenerationFailed || false,
-            imageAttribution: recipe.imageAttribution,
-            imagePrompt: recipe.imagePrompt,
+            imageUrl: null,
+            thumbnailUrl: null,
+            imageGenerated: false,
+            imageGenerationInProgress: false,
+            imageGenerationFailed: false,
+            generationMethod: recipe.generationMethod,
             createdAt: recipe.createdAt,
             updatedAt: recipe.updatedAt
         };
 
+        const totalTime = Date.now() - startTime;
+        logger.info(`[${totalTime}ms] SENDING IMMEDIATE RESPONSE for recipe: ${recipe._id}`);
+
         // Send response immediately
+        const message = usingFallback 
+            ? 'Recipe generated successfully (AI temporarily unavailable, using smart fallback)' 
+            : 'Recipe generated successfully';
+
         responseHandler.success(res, {
             recipe: responseRecipe
-        }, 'Recipe generated successfully', 201);
+        }, message, 201);
 
-        // Generate image in the background with timeout and failure tracking
-        setImmediate(async () => {
-            try {
-                logger.info(`Starting background image generation for recipe: ${recipe._id}`);
-                
-                // Update attempt counter
-                await Recipe.findByIdAndUpdate(recipe._id, {
-                    $inc: { imageGenerationAttempts: 1 }
-                });
-
-                // Set a maximum timeout for the entire image generation process
-                const imageGenerationPromise = imageService.generateRecipeImage(
-                    recipeName, 
-                    recipeData.description
-                );
-
-                // Race between image generation and timeout
-                const imageResult = await Promise.race([
-                    imageGenerationPromise,
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Image generation timeout after 60 seconds')), 60000)
-                    )
-                ]);
-
-                if (imageResult) {
-                    await Recipe.findByIdAndUpdate(recipe._id, {
-                        imageUrl: imageResult.imageUrl,
-                        thumbnailUrl: imageResult.thumbnailUrl,
-                        imageGenerated: true,
-                        imageGenerationFailed: false,
-                        imageAttribution: imageResult.attribution
-                    });
-                    
-                    logger.info(`✅ Background image generated successfully for recipe: ${recipe._id}`);
-                } else {
-                    // Mark as failed if no image could be generated
-                    await Recipe.findByIdAndUpdate(recipe._id, {
-                        imageGenerated: false,
-                        imageGenerationFailed: true
-                    });
-                    
-                    logger.warn(`⚠️ Background image generation failed (no result) for recipe: ${recipe._id}`);
-                }
-            } catch (imageError) {
-                // Mark as failed and log the error
-                await Recipe.findByIdAndUpdate(recipe._id, {
-                    imageGenerated: false,
-                    imageGenerationFailed: true
-                });
-                
-                logger.error(`❌ Background image generation error for recipe ${recipe._id}:`, {
-                    error: imageError.message,
-                    stack: imageError.stack
-                });
-            }
-        });
+        logger.info(`[${totalTime}ms] Recipe generation complete`);
 
     } catch (error) {
-        logger.error('Recipe generation error:', error);
-        
-        if (error.message.includes('Gemini')) {
-            return responseHandler.error(res, 'Failed to generate recipe. Please try again.', 502);
+        const totalTime = Date.now() - startTime;
+        logger.error(`[${totalTime}ms] Recipe generation error:`, {
+            error: error.message,
+            stack: error.stack,
+            user: req.user?.email,
+            recipeName: req.body?.recipeName
+        });
+
+        if (error?.name === 'ValidationError') {
+            return responseHandler.error(res, error.message, 400);
         }
-        
-        responseHandler.error(res, 'Failed to generate recipe', 500);
+
+        responseHandler.error(res, 'An unexpected error occurred during recipe generation. Please try again.', 500);
     }
 };
 
-// Add a new method to retry failed image generations
+
+
+// Enhanced retry image generation
 const retryImageGeneration = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user._id;
+
+        if (!id?.match(/^[0-9a-fA-F]{24}$/)) {
+            return responseHandler.error(res, 'Invalid recipe ID format', 400);
+        }
 
         const recipe = await Recipe.findOne({ _id: id, user: userId });
 
@@ -174,54 +293,74 @@ const retryImageGeneration = async (req, res) => {
             }, 'Image already generated');
         }
 
-        // Reset failure status and retry
-        await Recipe.findByIdAndUpdate(recipe._id, {
+        if (recipe.imageGenerationInProgress) {
+            return responseHandler.error(res, 'Image generation is already in progress', 400);
+        }
+
+        if (recipe.imageGenerationAttempts >= 5) {
+            return responseHandler.error(res, 'Maximum retry attempts reached', 400);
+        }
+
+        // Start retry immediately and return response
+        await Recipe.findByIdAndUpdate(id, {
             imageGenerationFailed: false,
+            imageGenerationInProgress: true,
             $inc: { imageGenerationAttempts: 1 }
         });
 
-        logger.info(`Retrying image generation for recipe: ${recipe.name} (${recipe._id})`);
+        logger.info(`Starting image retry for recipe: ${id}, attempt: ${recipe.imageGenerationAttempts + 1}`);
 
-        const imageResult = await imageService.generateRecipeImage(
-            recipe.name, 
-            recipe.description
-        );
+        // Send immediate response
+        responseHandler.success(res, {
+            message: 'Image generation retry started',
+            recipeId: id,
+            attempt: recipe.imageGenerationAttempts + 1
+        }, 'Image generation retry initiated');
 
-        if (imageResult) {
-            await Recipe.findByIdAndUpdate(recipe._id, {
-                imageUrl: imageResult.imageUrl,
-                thumbnailUrl: imageResult.thumbnailUrl,
-                imageGenerated: true,
-                imageGenerationFailed: false,
-                imageAttribution: imageResult.attribution
-            });
+        // Background retry
+        process.nextTick(async () => {
+            try {
+                const imageService = require('../services/imageService');
+                const imageResult = await Promise.race([
+                    imageService.generateRecipeImage(recipe.name, recipe.description),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Retry timeout')), 90000)
+                    )
+                ]);
 
-            responseHandler.success(res, {
-                imageUrl: imageResult.imageUrl,
-                thumbnailUrl: imageResult.thumbnailUrl,
-                attribution: imageResult.attribution,
-                retried: true
-            }, 'Image generated successfully');
-        } else {
-            await Recipe.findByIdAndUpdate(recipe._id, {
-                imageGenerationFailed: true
-            });
-
-            responseHandler.error(res, 'Failed to generate image after retry', 500);
-        }
+                if (imageResult?.imageUrl) {
+                    await Recipe.findByIdAndUpdate(id, {
+                        imageUrl: imageResult.imageUrl,
+                        thumbnailUrl: imageResult.thumbnailUrl,
+                        imageGenerated: true,
+                        imageGenerationInProgress: false,
+                        imageGenerationFailed: false,
+                        imageAttribution: imageResult.attribution
+                    });
+                    logger.info(`✅ Image retry successful for recipe: ${id}`);
+                } else {
+                    await Recipe.findByIdAndUpdate(id, {
+                        imageGenerationInProgress: false,
+                        imageGenerationFailed: true
+                    });
+                    logger.warn(`⚠️ Image retry failed for recipe: ${id}`);
+                }
+            } catch (retryError) {
+                await Recipe.findByIdAndUpdate(id, {
+                    imageGenerationInProgress: false,
+                    imageGenerationFailed: true
+                }).catch(() => {});
+                logger.error(`❌ Image retry error for recipe: ${id}:`, retryError.message);
+            }
+        });
 
     } catch (error) {
         logger.error('Retry image generation error:', error);
-        
-        // Mark as failed
-        await Recipe.findByIdAndUpdate(req.params.id, {
-            imageGenerationFailed: true
-        });
-        
         responseHandler.error(res, 'Failed to retry image generation', 500);
     }
 };
 
+// Immediate image generation
 const generateRecipeImage = async (req, res) => {
     try {
         const { id } = req.params;
@@ -241,29 +380,63 @@ const generateRecipeImage = async (req, res) => {
             }, 'Image already exists');
         }
 
-        logger.info(`Generating image for recipe: ${recipe.name}`);
-
-        const imageResult = await imageService.generateRecipeImage(
-            recipe.name, 
-            recipe.description
-        );
-
-        if (imageResult) {
-            recipe.imageUrl = imageResult.imageUrl;
-            recipe.thumbnailUrl = imageResult.thumbnailUrl;
-            recipe.imageGenerated = true;
-            recipe.imageAttribution = imageResult.attribution;
-            await recipe.save();
-
-            responseHandler.success(res, {
-                imageUrl: recipe.imageUrl,
-                thumbnailUrl: recipe.thumbnailUrl,
-                attribution: recipe.imageAttribution,
-                generated: true
-            }, 'Image generated successfully');
-        } else {
-            responseHandler.error(res, 'Failed to generate image', 500);
+        if (recipe.imageGenerationInProgress) {
+            return responseHandler.success(res, {
+                message: 'Image generation already in progress',
+                imageGenerationInProgress: true
+            }, 'Image generation in progress');
         }
+
+        // Start generation and return immediately
+        await Recipe.findByIdAndUpdate(id, {
+            imageGenerationInProgress: true,
+            $inc: { imageGenerationAttempts: 1 }
+        });
+
+        logger.info(`Manual image generation started for recipe: ${id}`);
+
+        // Send immediate response
+        responseHandler.success(res, {
+            message: 'Image generation started',
+            imageGenerationInProgress: true
+        }, 'Image generation initiated');
+
+        // Background generation
+        process.nextTick(async () => {
+            try {
+                const imageService = require('../services/imageService');
+                const imageResult = await Promise.race([
+                    imageService.generateRecipeImage(recipe.name, recipe.description),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Image generation timeout')), 90000)
+                    )
+                ]);
+
+                if (imageResult?.imageUrl) {
+                    await Recipe.findByIdAndUpdate(id, {
+                        imageUrl: imageResult.imageUrl,
+                        thumbnailUrl: imageResult.thumbnailUrl,
+                        imageGenerated: true,
+                        imageGenerationInProgress: false,
+                        imageGenerationFailed: false,
+                        imageAttribution: imageResult.attribution
+                    });
+                    logger.info(`✅ Manual image generation successful for recipe: ${id}`);
+                } else {
+                    await Recipe.findByIdAndUpdate(id, {
+                        imageGenerationInProgress: false,
+                        imageGenerationFailed: true
+                    });
+                    logger.warn(`⚠️ Manual image generation failed for recipe: ${id}`);
+                }
+            } catch (error) {
+                await Recipe.findByIdAndUpdate(id, {
+                    imageGenerationInProgress: false,
+                    imageGenerationFailed: true
+                }).catch(() => {});
+                logger.error(`❌ Manual image generation error for recipe: ${id}:`, error.message);
+            }
+        });
 
     } catch (error) {
         logger.error('Generate recipe image error:', error);
@@ -271,6 +444,36 @@ const generateRecipeImage = async (req, res) => {
     }
 };
 
+// Check image generation status
+const getImageGenerationStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user._id;
+
+        const recipe = await Recipe.findOne({ _id: id, user: userId })
+            .select('imageGenerationInProgress imageGenerated imageGenerationFailed imageUrl thumbnailUrl imageGenerationAttempts');
+
+        if (!recipe) {
+            return responseHandler.error(res, 'Recipe not found', 404);
+        }
+
+        responseHandler.success(res, {
+            recipeId: id,
+            imageGenerationInProgress: recipe.imageGenerationInProgress || false,
+            imageGenerated: recipe.imageGenerated || false,
+            imageGenerationFailed: recipe.imageGenerationFailed || false,
+            imageUrl: recipe.imageUrl,
+            thumbnailUrl: recipe.thumbnailUrl,
+            attempts: recipe.imageGenerationAttempts || 0
+        }, 'Image generation status retrieved');
+
+    } catch (error) {
+        logger.error('Get image generation status error:', error);
+        responseHandler.error(res, 'Failed to get image status', 500);
+    }
+};
+
+// Other methods (keep existing implementations)
 const getUserRecipes = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -287,7 +490,7 @@ const getUserRecipes = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .select('name description difficulty prepTime cookTime servings createdAt isFavorite tags cuisine imageUrl thumbnailUrl imageGenerated');
+            .select('name description difficulty prepTime cookTime servings createdAt isFavorite tags cuisine imageUrl thumbnailUrl imageGenerated imageGenerationInProgress imageGenerationFailed');
 
         const total = await Recipe.countDocuments(filter);
 
@@ -384,10 +587,13 @@ const updateRecipe = async (req, res) => {
         const userId = req.user._id;
         const updateData = req.body;
 
+        // Remove protected fields
         delete updateData.user;
         delete updateData._id;
         delete updateData.createdAt;
         delete updateData.updatedAt;
+        delete updateData.imageGenerationAttempts;
+        delete updateData.imageGenerationInProgress;
 
         const recipe = await Recipe.findOneAndUpdate(
             { _id: id, user: userId },
@@ -424,7 +630,7 @@ const searchRecipes = async (req, res) => {
             user: userId,
             $text: { $search: query }
         })
-        .select('name description difficulty prepTime cookTime servings createdAt isFavorite tags cuisine imageUrl thumbnailUrl')
+        .select('name description difficulty prepTime cookTime servings createdAt isFavorite tags cuisine imageUrl thumbnailUrl imageGenerated')
         .sort({ score: { $meta: 'textScore' } })
         .limit(20);
 
@@ -448,5 +654,6 @@ module.exports = {
     updateRecipe,
     searchRecipes,
     generateRecipeImage,
-    retryImageGeneration
+    retryImageGeneration,
+    getImageGenerationStatus
 };

@@ -116,15 +116,15 @@ const Register = () => {
   const passwordStrength = getPasswordStrength(password)
 
   return (
-    <div className="fade-in">
+    <div className="fade-in mx-auto w-full max-w-3xl px-4 sm:px-6">
       {/* Welcome Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-xl font-bold text-gray-800 mb-2 kitchen-subtitle">Welcome To,</h1>
-        <h2 className="text-3xl font-bold kitchen-title mb-4">
+      <div className="mb-8 text-center sm:mb-10">
+        <h1 className="mb-2 text-lg font-bold text-gray-800 sm:text-xl kitchen-subtitle">Welcome To,</h1>
+        <h2 className="mb-4 text-2xl font-bold sm:text-3xl kitchen-title">
           RecipeWala
         </h2>
         <div className="kitchen-divider w-24"></div>
-        <h3 className="text-2xl font-semibold kitchen-label mb-2">Sign Up</h3>
+        <h3 className="mb-2 text-xl font-semibold sm:text-2xl kitchen-label">Sign Up</h3>
       </div>
       
       {error && (
@@ -134,10 +134,10 @@ const Register = () => {
         </div>
       )}
       
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
         {/* Username Field */}
         <div className="kitchen-focus">
-          <label htmlFor="username" className="block text-lg font-medium kitchen-label mb-2">
+          <label htmlFor="username" className="mb-2 block text-base font-medium sm:text-lg kitchen-label">
             Username
           </label>
           <div className="relative">
@@ -159,7 +159,7 @@ const Register = () => {
 
         {/* Email Field */}
         <div className="kitchen-focus">
-          <label htmlFor="email" className="block text-lg font-medium kitchen-label mb-2">
+          <label htmlFor="email" className="mb-2 block text-base font-medium sm:text-lg kitchen-label">
             Email
           </label>
           <div className="relative">
@@ -181,7 +181,7 @@ const Register = () => {
 
         {/* Password Field */}
         <div className="kitchen-focus">
-          <label htmlFor="password" className="block text-lg font-medium kitchen-label mb-2">
+          <label htmlFor="password" className="mb-2 block text-base font-medium sm:text-lg kitchen-label">
             Password
           </label>
           <div className="relative">
@@ -198,7 +198,7 @@ const Register = () => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-orange-500 disabled:cursor-not-allowed transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 transform text-gray-400 transition-colors hover:text-orange-500 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -227,7 +227,7 @@ const Register = () => {
 
         {/* Confirm Password Field */}
         <div className="kitchen-focus">
-          <label htmlFor="confirmPassword" className="block text-lg font-medium kitchen-label mb-2">
+          <label htmlFor="confirmPassword" className="mb-2 block text-base font-medium sm:text-lg kitchen-label">
             Confirm Password
           </label>
           <div className="relative">
@@ -244,7 +244,7 @@ const Register = () => {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-orange-500 disabled:cursor-not-allowed transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 transform text-gray-400 transition-colors hover:text-orange-500 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -259,7 +259,7 @@ const Register = () => {
         <button
           type="submit"
           disabled={isLoading || !isValid}
-          className="kitchen-button col-span-2 w-full text-white py-3 px-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 mt-2"
+          className="kitchen-button mt-2 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-lg text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
         >
           {isLoading ? (
             <>
@@ -272,8 +272,8 @@ const Register = () => {
         </button>
 
         {/* Login Link */}
-        <div className="text-center col-span-2">
-          <p className="kitchen-subtitle">
+        <div className="col-span-1 text-center sm:col-span-2">
+          <p className="text-sm sm:text-base kitchen-subtitle">
             Already have an account?{' '}
             <Link to="/login" className="kitchen-link font-semibold">
               Sign In

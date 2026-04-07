@@ -43,12 +43,12 @@ const RecipeDetail = () => {
   // Reset servings when recipe changes
   useEffect(() => {
     if (recipe && recipe.servings) {
-      setServings(recipe.servings)
+      setServings(Number(recipe.servings)) // Convert to number
     }
   }, [recipe])
 
   const handleServingsChange = (newServings) => {
-    setServings(Math.max(1, newServings))
+    setServings(Math.max(1, Number(newServings))) // Ensure it's a number
   }
 
   const handleDeleteRecipe = async () => {
@@ -86,30 +86,99 @@ const RecipeDetail = () => {
   }
 
   const calculateIngredients = (ingredients, originalServings, newServings) => {
+    if (!ingredients || !Array.isArray(ingredients)) {
+      console.warn('Invalid ingredients data:', ingredients)
+      return []
+    }
+
     const ratio = newServings / originalServings
-    return ingredients.map(ingredient => {
-      // If ingredient is a string, scale as before
+
+    return ingredients.map((ingredient, index) => {
+      // Debug log each ingredient
+      console.log(`Processing ingredient ${index}:`, ingredient)
+
+      // Handle null or undefined ingredients
+      if (!ingredient) {
+        return 'Invalid ingredient'
+      }
+
+      // If ingredient is a string
       if (typeof ingredient === 'string') {
+        // Handle empty strings
+        if (!ingredient.trim()) {
+          return 'Empty ingredient'
+        }
+
+        // Find numbers in the string and scale them, keep as strings
         const numbers = ingredient.match(/\d+\.?\d*/g)
-        if (numbers) {
+        if (numbers && numbers.length > 0) {
           let scaledIngredient = ingredient
           numbers.forEach(num => {
-            const scaledNum = (parseFloat(num) * ratio).toFixed(2).replace(/\.?0+$/, '')
-            scaledIngredient = scaledIngredient.replace(num, scaledNum)
+            const originalNum = parseFloat(num)
+            // Scale but keep as string (no integer conversion)
+            const scaledNum = String(originalNum * ratio)
+            scaledIngredient = scaledIngredient.replace(new RegExp(num, 'g'), scaledNum)
           })
           return scaledIngredient
         }
+        // Return as-is if no numbers found
         return ingredient
       }
-      // If ingredient is an object, format and scale quantity
+
+      // If ingredient is an object
       if (typeof ingredient === 'object' && ingredient !== null) {
-        const qty = ingredient.quantity ? (ingredient.quantity * ratio).toFixed(2).replace(/\.?0+$/, '') : ''
-        const unit = ingredient.unit || ''
-        const name = ingredient.name || ''
-        return [qty, unit, name].filter(Boolean).join(' ').trim()
+        // Handle different possible object structures
+        let amount = ingredient.quantity || ingredient.amount || ingredient.qty || ''
+        let name = ingredient.name || ingredient.ingredient || ingredient.item || ''
+
+        // If it's a nested object, try to extract meaningful data
+        if (!name && !amount) {
+          // Try to find any text properties
+          const textProps = Object.values(ingredient).filter(val => 
+            typeof val === 'string' && val.trim().length > 0
+          )
+          if (textProps.length > 0) {
+            return textProps.join(' ')
+          }
+          return JSON.stringify(ingredient)
+        }
+
+        // Scale the amount string (if it contains numbers) but keep the full string format
+        let scaledAmount = amount
+        if (amount && typeof amount === 'string') {
+          const numbers = amount.match(/\d+\.?\d*/g)
+          if (numbers && numbers.length > 0) {
+            scaledAmount = amount
+            numbers.forEach(num => {
+              const originalNum = parseFloat(num)
+              const scaledNum = String(originalNum * ratio)
+              scaledAmount = scaledAmount.replace(new RegExp(num, 'g'), scaledNum)
+            })
+          }
+        } else if (amount && !isNaN(parseFloat(amount))) {
+          // If amount is just a number, scale it
+          scaledAmount = String(parseFloat(amount) * ratio)
+        }
+
+        // Convert to strings
+        const amountStr = scaledAmount ? String(scaledAmount) : ''
+        const nameStr = name ? String(name) : ''
+
+        // Build ingredient string - amount (with its units) and name
+        const parts = [amountStr, nameStr].filter(part => 
+          part && part.trim().length > 0
+        )
+        
+        return parts.join(' ').trim() || 'Invalid ingredient format'
       }
-      // Fallback for unexpected types
-      return String(ingredient)
+
+      // Handle arrays (in case ingredients are nested)
+      if (Array.isArray(ingredient)) {
+        return ingredient.join(' ')
+      }
+
+      // Fallback for other types
+      return String(ingredient) || 'Unknown ingredient'
     })
   }
 
@@ -145,44 +214,51 @@ const RecipeDetail = () => {
     )
   }
 
+  // Debug log the raw ingredients data
+  console.log('Raw recipe ingredients:', recipe.ingredients)
+  console.log('Recipe servings:', recipe.servings)
+
   const scaledIngredients = recipe.ingredients ? 
     calculateIngredients(recipe.ingredients, recipe.servings || 4, servings) : 
     []
 
+  // Debug log the processed ingredients
+  console.log('Processed ingredients:', scaledIngredients)
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="mx-auto max-w-4xl space-y-5 px-4 sm:space-y-6 sm:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={() => navigate('/recipes')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-2 self-start text-sm text-gray-600 transition-colors hover:text-gray-900 sm:text-base"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Recipes</span>
         </button>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <button
             onClick={handleShare}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition-colors hover:bg-gray-50"
           >
             <Share2 className="h-4 w-4 text-gray-600" />
           </button>
           <button
             onClick={handlePrint}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors no-print"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition-colors hover:bg-gray-50 no-print"
           >
             <Printer className="h-4 w-4 text-gray-600" />
           </button>
           <button
             onClick={() => navigate(`/recipes/${id}/edit`)}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors no-print"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition-colors hover:bg-gray-50 no-print"
           >
             <Edit className="h-4 w-4 text-gray-600" />
           </button>
           <button
             onClick={handleDeleteRecipe}
-            className="p-2 border border-red-300 rounded-lg hover:bg-red-50 transition-colors text-red-600 no-print"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-300 text-red-600 transition-colors hover:bg-red-50 no-print"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -191,26 +267,26 @@ const RecipeDetail = () => {
 
       {/* Recipe Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-6 text-white">
-          <h1 className="text-3xl font-bold mb-2">{recipe.title}</h1>
-          <p className="text-orange-100 mb-4">{recipe.description}</p>
+        <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-4 text-white sm:p-6">
+          <h1 className="mb-2 text-2xl font-bold leading-tight sm:text-3xl">{recipe.title}</h1>
+          <p className="mb-4 text-sm leading-relaxed text-orange-100 sm:text-base">{recipe.description}</p>
           
           {/* Recipe Meta */}
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:gap-x-6">
+            <div className="flex items-center gap-1">
               <Clock className="h-5 w-5" />
               <span>{recipe.cookTime || '30 mins'}</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center gap-1">
               <Users className="h-5 w-5" />
               <span>{recipe.servings || 4} servings</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center gap-1">
               <ChefHat className="h-5 w-5" />
               <span className="capitalize">{recipe.difficulty || 'Medium'}</span>
             </div>
             {recipe.rating && (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-1">
                 <Star className="h-5 w-5 fill-current" />
                 <span>{recipe.rating}/5</span>
               </div>
@@ -219,20 +295,20 @@ const RecipeDetail = () => {
         </div>
 
         {/* Servings Adjuster */}
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-gray-900">Adjust Servings:</span>
-            <div className="flex items-center space-x-3">
+        <div className="border-b border-gray-200 bg-gray-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-medium text-gray-900 sm:text-base">Adjust Servings:</span>
+            <div className="flex items-center gap-3 self-start sm:self-auto">
               <button
-                onClick={() => handleServingsChange(servings - 1)}
-                className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                onClick={() => handleServingsChange(Number(servings) - 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-white transition-colors hover:bg-orange-600"
               >
                 -
               </button>
-              <span className="text-lg font-semibold w-8 text-center">{servings}</span>
+              <span className="w-8 text-center text-base font-semibold sm:text-lg">{servings}</span>
               <button
-                onClick={() => handleServingsChange(servings + 1)}
-                className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                onClick={() => handleServingsChange(Number(servings) + 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-white transition-colors hover:bg-orange-600"
               >
                 +
               </button>
@@ -242,12 +318,12 @@ const RecipeDetail = () => {
 
         {/* Recipe Content Tabs */}
         <div className="border-b border-gray-200">
-          <div className="flex space-x-0">
+          <div className="grid grid-cols-3 gap-1 p-2 sm:flex sm:gap-0 sm:p-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+                className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:rounded-none sm:px-6 sm:py-3 sm:text-base sm:border-b-2 ${
                   activeTab === tab.id
                     ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -261,26 +337,40 @@ const RecipeDetail = () => {
         </div>
 
         {/* Tab Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {activeTab === 'ingredients' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="mb-4 text-base font-semibold text-gray-900 sm:text-lg">
                 Ingredients {servings !== (recipe.servings || 4) && `(scaled for ${servings} servings)`}
               </h3>
-              <ul className="space-y-3">
-                {scaledIngredients.map((ingredient, index) => (
-                  <li key={index} className="flex items-start space-x-3">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></span>
-                    <span className="text-gray-700">{ingredient}</span>
-                  </li>
-                ))}
-              </ul>
+              
+              {/* Debug information - remove this in production */}
+              {/* {process.env.NODE_ENV === 'development' && (
+                <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-sm">
+                  <strong>Debug Info:</strong>
+                  <br />Raw ingredients: {JSON.stringify(recipe.ingredients)}
+                  <br />Processed count: {scaledIngredients.length}
+                </div>
+              )} */}
+
+              {scaledIngredients.length > 0 ? (
+                <ul className="space-y-3">
+                  {scaledIngredients.map((ingredient, index) => (
+                    <li key={index} className="flex items-start gap-3">
+                      <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></span>
+                      <span className="text-sm leading-relaxed text-gray-700 sm:text-base">{ingredient}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No ingredients available</p>
+              )}
             </div>
           )}
 
           {activeTab === 'instructions' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Instructions</h3>
+              <h3 className="mb-4 text-base font-semibold text-gray-900 sm:text-lg">Instructions</h3>
               <ol className="space-y-4">
                 {Array.isArray(recipe.instructions) && recipe.instructions.length > 0 ? (
                   recipe.instructions.map((step, index) => {
@@ -288,11 +378,11 @@ const RecipeDetail = () => {
                     if (typeof step === 'string') text = step
                     else if (typeof step === 'object' && step !== null) text = step.instruction || step.step || JSON.stringify(step)
                     return (
-                      <li key={index} className="flex space-x-4">
-                        <span className="flex-shrink-0 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                      <li key={index} className="flex gap-3 sm:gap-4">
+                        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 text-sm font-medium text-white">
                           {index + 1}
                         </span>
-                        <p className="text-gray-700 pt-1 leading-relaxed">{text}</p>
+                        <p className="pt-1 text-sm leading-relaxed text-gray-700 sm:text-base">{text}</p>
                       </li>
                     )
                   })
@@ -305,11 +395,11 @@ const RecipeDetail = () => {
 
           {activeTab === 'nutrition' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="mb-4 text-base font-semibold text-gray-900 sm:text-lg">
                 Nutritional Information {servings !== (recipe.servings || 4) && `(per serving, scaled)`}
               </h3>
               {recipe.nutrition && typeof recipe.nutrition === 'object' ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
                   {Object.entries(recipe.nutrition)
                     .filter(([key, _]) => key.toLowerCase() !== 'id' && key.toLowerCase() !== '_id')
                     .map(([key, value]) => {
@@ -321,9 +411,9 @@ const RecipeDetail = () => {
                         displayValue = Math.round(value * servings / (recipe.servings || 4))
                       }
                       return (
-                        <div key={key} className="bg-gray-50 rounded-lg p-4 text-center">
-                          <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
-                          <p className="text-sm text-gray-600 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                        <div key={key} className="rounded-lg bg-gray-50 p-3 text-center sm:p-4">
+                          <p className="text-lg font-bold text-gray-900 sm:text-2xl">{displayValue}</p>
+                          <p className="text-xs capitalize text-gray-600 sm:text-sm">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
                         </div>
                       )
                     })}

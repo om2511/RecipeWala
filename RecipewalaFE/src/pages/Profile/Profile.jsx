@@ -1,46 +1,6 @@
-/*
- * BACKEND REQUIREMENTS for Profile Image CORS Fix:
- * 
- * To properly handle profile images and avoid CORS issues, add this route to your backend:
- * 
- * // Route: GET /api/users/profile-image/:filename
- * router.get('/profile-image/:filename', auth, async (req, res) => {
- *   try {
- *     const { filename } = req.params;
- *     const imagePath = path.join(__dirname, '../uploads', filename);
- *     
- *     if (!fs.existsSync(imagePath)) {
- *       return res.status(404).json({ message: 'Image not found' });
- *     }
- *     
- *     const ext = path.extname(filename).toLowerCase();
- *     const mimeTypes = {
- *       '.jpg': 'image/jpeg',
- *       '.jpeg': 'image/jpeg',
- *       '.png': 'image/png',
- *       '.gif': 'image/gif',
- *       '.webp': 'image/webp'
- *     };
- *     
- *     const contentType = mimeTypes[ext] || 'application/octet-stream';
- *     
- *     res.setHeader('Content-Type', contentType);
- *     res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
- *     res.setHeader('Access-Control-Allow-Credentials', 'true');
- *     
- *     const imageStream = fs.createReadStream(imagePath);
- *     imageStream.pipe(res);
- *   } catch (error) {
- *     console.error('Error serving profile image:', error);
- *     res.status(500).json({ message: 'Error serving image' });
- *   }
- * });
- * 
- * Alternative: Add CORS middleware to serve uploads folder:
- * app.use('/uploads', cors({ origin: 'http://localhost:5173', credentials: true }), express.static('uploads'));
- */
+// Profile image upload and backend CORS logic removed. Now always shows a static mock user image.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -50,8 +10,6 @@ import {
   User, 
   Mail, 
   Lock, 
-  Save, 
-  Camera,
   Settings,
   ChefHat,
   Calendar,
@@ -61,17 +19,15 @@ import {
   Edit2,
   Check,
   X,
-  Upload,
-  Trash2,
   AlertTriangle,
   UserX,
-  Download,
   Eye,
   EyeOff,
   Sparkles,
   Award,
   TrendingUp
 } from 'lucide-react'
+import mockUserImg from '../../assets/images/mock-user.png'
 import { userService } from '../../services/userService'
 import { setCredentials, logout } from '../../features/auth/authSlice'
 import { getRecipeStats } from '../../features/recipes/recipeSlice'
@@ -115,21 +71,14 @@ const Profile = () => {
   const { stats } = useSelector((state) => state.recipes)
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const fileInputRef = useRef(null)
-  const previousImagePreviewRef = useRef(null)
-  
   const [activeTab, setActiveTab] = useState('profile')
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [profileData, setProfileData] = useState(null)
-  const [imagePreview, setImagePreview] = useState(null)
-  const [imageFile, setImageFile] = useState(null)
-  const [isLoadingImage, setIsLoadingImage] = useState(false)
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
@@ -159,69 +108,6 @@ const Profile = () => {
     return response.data?.user || response.data?.data?.user || response.data
   }
 
-  // Helper function to construct image URL with CORS handling
-  const constructImageUrl = async (imagePath) => {
-    if (!imagePath) return null
-    
-    // If it's already a blob URL, return as is
-    if (imagePath.startsWith('blob:')) {
-      return imagePath
-    }
-    
-    // If it's an external URL, return as is
-    if (imagePath.startsWith('http') && !imagePath.includes('localhost:5000')) {
-      return imagePath
-    }
-    
-    // For backend uploads, we need to handle CORS
-    if (imagePath.startsWith('/uploads/') || imagePath.includes('localhost:5000')) {
-      try {
-        // Extract just the filename
-        const filename = imagePath.split('/').pop()
-        
-        // Try to fetch image through API endpoint (requires backend route: GET /api/users/profile-image/:filename)
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
-        const response = await fetch(`${apiBaseUrl}/users/profile-image/${filename}`, {
-          headers: {
-            'Authorization': `Bearer ${getCurrentAccessToken()}`
-          }
-        })
-        
-        if (response.ok) {
-          const blob = await response.blob()
-          return URL.createObjectURL(blob)
-        } else {
-          console.warn('Profile image API endpoint not available, using direct URL (may have CORS issues)')
-          // Fallback to direct URL (might still have CORS issues)
-          const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
-          return `${baseUrl}${imagePath.startsWith('/') ? imagePath : '/uploads/' + imagePath}`
-        }
-      } catch (error) {
-        console.warn('Error fetching profile image through API, using direct URL:', error)
-        // Fallback to direct URL (might still have CORS issues)
-        const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'
-        return `${baseUrl}${imagePath.startsWith('/') ? imagePath : '/uploads/' + imagePath}`
-      }
-    }
-    
-    return imagePath
-  }
-
-  // Helper function to load image with CORS handling
-  const loadProfileImage = async (imagePath) => {
-    if (!imagePath) return null
-    
-    try {
-      setIsLoadingImage(true)
-      const imageUrl = await constructImageUrl(imagePath)
-      return imageUrl
-    } catch (error) {
-      console.error('Failed to load profile image:', error)
-      return null
-    } finally {
-      setIsLoadingImage(false)
-    }
-  }
 
   // Helper function to get current access token
   const getCurrentAccessToken = () => {
@@ -250,177 +136,40 @@ const Profile = () => {
     dispatch(getRecipeStats())
   }, [dispatch])
 
-  // Cleanup blob URLs to prevent memory leaks
-  useEffect(() => {
-    // Clean up previous blob URL when imagePreview changes
-    const previousUrl = previousImagePreviewRef.current
-    if (previousUrl && previousUrl.startsWith('blob:') && previousUrl !== imagePreview) {
-      console.log('🧹 Cleaning up previous blob URL:', previousUrl)
-      URL.revokeObjectURL(previousUrl)
-    }
-    
-    // Update ref with current imagePreview
-    previousImagePreviewRef.current = imagePreview
-    
-    // Cleanup on unmount
-    return () => {
-      if (imagePreview && imagePreview.startsWith('blob:')) {
-        console.log('🧹 Cleaning up blob URL on unmount:', imagePreview)
-        URL.revokeObjectURL(imagePreview)
-      }
-    }
-  }, [imagePreview])
-
   const fetchProfile = async () => {
     try {
-      console.log('🔄 Fetching profile data...')
       const response = await userService.getProfile()
-      console.log('✅ Profile response:', response.data)
-      
       const userData = extractUserData(response)
-      
-      if (!userData) {
-        throw new Error('No user data received from server')
-      }
-      
+      if (!userData) throw new Error('No user data received from server')
       setProfileData(userData)
-      
       // Update Redux state
       const accessToken = getCurrentAccessToken()
-      dispatch(setCredentials({
-        user: userData,
-        accessToken
-      }))
-
+      dispatch(setCredentials({ user: userData, accessToken }))
       // Reset form with fetched data
       resetProfile({
         username: userData.username || '',
         email: userData.email || '',
       })
-
-      // Load image with CORS handling
-      if (userData.image) {
-        console.log('🔄 Loading profile image:', userData.image)
-        try {
-          const imageUrl = await loadProfileImage(userData.image)
-          setImagePreview(imageUrl)
-          console.log('✅ Profile image loaded:', imageUrl)
-        } catch (error) {
-          console.error('❌ Failed to load profile image:', error)
-          setImagePreview(null)
-        }
-      } else {
-        setImagePreview(null)
-      }
-      
-      console.log('✅ Profile data loaded successfully')
     } catch (error) {
-      console.error('❌ Failed to fetch profile:', error)
       toast.error(error.response?.data?.message || 'Failed to load profile')
     }
   }
 
-  const handleImageChange = (event) => {
-    const file = event.target.files[0]
-    if (!file) return
-
-    // Validate file type and size
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error('Image size should be less than 5MB')
-      return
-    }
-
-    setImageFile(file)
-    
-    // Create blob URL for immediate preview
-    const blobUrl = URL.createObjectURL(file)
-    setImagePreview(blobUrl)
-    
-    console.log('📷 Image file selected:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      blobUrl
-    })
-    
-    toast.success('Image selected. Don\'t forget to save your changes!')
-  }
 
   const onSubmitProfile = async (data) => {
     try {
       setIsUpdatingProfile(true)
-      console.log('🔄 Updating profile...')
-      
-      const formData = new FormData()
-      formData.append('username', data.username)
-      
-      if (imageFile) {
-        formData.append('image', imageFile)
-        console.log('📷 Including image file in update')
-      }
-
-      const response = await userService.updateProfile(formData)
-      console.log('✅ Profile update response:', response.data)
-      
-      // Use consistent data extraction
+      // Only update username (no image upload)
+      const response = await userService.updateProfile({ username: data.username })
       const updatedUser = extractUserData(response)
-      console.log('📋 Extracted user data:', {
-        user: updatedUser,
-        hasImage: !!updatedUser?.image,
-        imagePath: updatedUser?.image
-      })
-      
-      if (!updatedUser) {
-        throw new Error('No user data received from update response')
-      }
-
-      // Update local state
+      if (!updatedUser) throw new Error('No user data received from update response')
       setProfileData(updatedUser)
-      
       // Update Redux state
       const accessToken = getCurrentAccessToken()
-      dispatch(setCredentials({
-        user: updatedUser,
-        accessToken
-      }))
-
-      // Update image preview
-      if (updatedUser.image) {
-        console.log('🖼️ Loading updated profile image:', updatedUser.image)
-        
-        // Clean up old blob URL if exists
-        if (imagePreview && imagePreview.startsWith('blob:')) {
-          URL.revokeObjectURL(imagePreview)
-        }
-        
-        try {
-          const imageUrl = await loadProfileImage(updatedUser.image)
-          setImagePreview(imageUrl)
-          console.log('✅ Updated profile image loaded:', imageUrl)
-        } catch (error) {
-          console.error('❌ Failed to load updated profile image:', error)
-          setImagePreview(null)
-        }
-      } else if (imageFile) {
-        // If we uploaded a file but no image path returned, keep the blob URL temporarily
-        console.log('⚠️ No image path returned from server, keeping blob URL')
-      } else {
-        setImagePreview(null)
-      }
-
+      dispatch(setCredentials({ user: updatedUser, accessToken }))
       setIsEditingProfile(false)
-      setImageFile(null)
       toast.success('Profile updated successfully!')
-      
-      console.log('✅ Profile updated successfully')
     } catch (error) {
-      console.error('❌ Profile update error:', error)
-      console.error('❌ Error response:', error.response?.data)
       toast.error(error.response?.data?.message || 'Failed to update profile')
     } finally {
       setIsUpdatingProfile(false)
@@ -481,27 +230,6 @@ const Profile = () => {
       username: profileData?.username || '',
       email: profileData?.email || '',
     })
-    
-    // Clean up blob URL if exists (the useEffect will handle this, but we do it explicitly too)
-    if (imagePreview && imagePreview.startsWith('blob:')) {
-      console.log('🧹 Manually cleaning up blob URL on cancel:', imagePreview)
-      URL.revokeObjectURL(imagePreview)
-    }
-    
-    setImageFile(null)
-    
-    // Reset image preview to original
-    if (profileData?.image) {
-      try {
-        const imageUrl = await loadProfileImage(profileData.image)
-        setImagePreview(imageUrl)
-      } catch (error) {
-        console.error('❌ Failed to reload original profile image:', error)
-        setImagePreview(null)
-      }
-    } else {
-      setImagePreview(null)
-    }
   }
 
   const getInitials = (username) => {
@@ -536,78 +264,29 @@ const Profile = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 sm:space-y-8 sm:px-0">
       {/* Enhanced Profile Header */}
-      <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5 text-white shadow-2xl sm:p-8">
         {/* Background decoration */}
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white bg-opacity-10 rounded-full blur-xl"></div>
         <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-40 h-40 bg-white bg-opacity-5 rounded-full blur-2xl"></div>
         
-        <div className="relative flex items-start justify-between">
-          <div className="flex items-center space-x-6">
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
             <div className="relative group">
-              {isLoadingImage ? (
-                <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center shadow-xl">
-                  <LoadingSpinner size="small" className="text-white" />
-                </div>
-              ) : imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt={profileData.username}
-                  className="w-24 h-24 rounded-full object-cover border-4 border-white border-opacity-30 shadow-xl group-hover:scale-105 transition-transform duration-200"
-                  onError={(e) => {
-                    console.error('❌ Image load error:', {
-                      src: e.target.src,
-                      imagePath: profileData.image,
-                      error: 'Likely CORS issue - image blocked by browser'
-                    })
-                    setImagePreview(null)
-                    toast.error('Unable to load profile image (CORS issue)')
-                  }}
-                  onLoad={() => {
-                    console.log('✅ Image loaded successfully:', imagePreview)
-                  }}
-                />
-              ) : (
-                <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-200">
-                  <span className="text-3xl font-bold text-white">
-                    {getInitials(profileData.username)}
-                  </span>
-                </div>
-              )}
-              
-              {/* Enhanced Image Upload Button */}
-              {isEditingProfile && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingImage}
-                  className="absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center text-purple-500 hover:bg-gray-100 transition-all duration-200 shadow-lg hover:scale-110 disabled:opacity-50"
-                >
-                  {isUploadingImage ? (
-                    <LoadingSpinner size="small" className="w-4 h-4" />
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
-                </button>
-              )}
-              
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
+              <img
+                src={mockUserImg}
+                alt="User"
+                className="h-20 w-20 rounded-full border-4 border-white border-opacity-30 object-cover shadow-xl transition-transform duration-200 group-hover:scale-105 sm:h-24 sm:w-24"
               />
             </div>
-            
-            <div>
-              <h1 className="text-3xl font-bold mb-1">{profileData.username}</h1>
-              <div className="text-purple-100 text-lg mb-2 flex items-center">
+            <div className="min-w-0">
+              <h1 className="mb-1 text-2xl font-bold sm:text-3xl">{profileData.username}</h1>
+              <div className="mb-2 flex items-center justify-center text-base text-purple-100 sm:justify-start sm:text-lg">
                 <Mail className="h-4 w-4 mr-2" />
                 {profileData.email}
               </div>
-              <div className="text-purple-200 text-sm flex items-center">
+              <div className="flex items-center justify-center text-sm text-purple-200 sm:justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
                 Member since {formatDate(profileData.createdAt)}
               </div>
@@ -617,8 +296,7 @@ const Profile = () => {
           {!isEditingProfile && (
             <button
               onClick={() => setIsEditingProfile(true)}
-              disabled={isUploadingImage}
-              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-6 py-3 rounded-xl transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 backdrop-blur-sm hover:scale-105"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white bg-opacity-20 px-5 py-3 text-white transition-all duration-200 hover:bg-opacity-30 disabled:opacity-50 backdrop-blur-sm hover:scale-105 sm:w-auto sm:px-6"
             >
               <Edit2 className="h-5 w-5" />
               <span className="font-medium">Edit Profile</span>
@@ -628,21 +306,21 @@ const Profile = () => {
       </div>
 
       {/* Enhanced Tabs */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
         <div className="border-b border-gray-200 bg-gray-50">
-          <div className="flex space-x-0">
+          <div className="grid grid-cols-2 gap-1 p-2 sm:grid-cols-4 sm:p-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-8 py-4 font-medium border-b-3 transition-all duration-200 flex items-center space-x-3 relative ${
+                className={`relative flex min-h-14 items-center justify-center gap-2 rounded-xl border-b-3 px-3 py-3 text-sm font-medium transition-all duration-200 sm:min-h-0 sm:rounded-none sm:px-6 sm:py-4 sm:text-base ${
                   activeTab === tab.id
                     ? `border-${tab.color}-500 text-${tab.color}-600 bg-white`
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-white hover:bg-opacity-50'
+                    : 'border-transparent text-gray-500 hover:bg-white hover:bg-opacity-50 hover:text-gray-700'
                 }`}
               >
-                <tab.icon className="h-5 w-5" />
-                <span>{tab.label}</span>
+                <tab.icon className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+                <span className="truncate">{tab.label}</span>
                 {activeTab === tab.id && (
                   <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${tab.color}-500`}></div>
                 )}
@@ -651,19 +329,19 @@ const Profile = () => {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div>
               {isEditingProfile ? (
                 <div className="space-y-6">
-                  <div className="flex items-center space-x-3 mb-6">
+                  <div className="mb-6 flex items-center gap-3">
                     <Settings className="h-6 w-6 text-blue-500" />
                     <h3 className="text-xl font-semibold text-gray-900">Edit Profile</h3>
                   </div>
                   
                   <form onSubmit={handleSubmitProfile(onSubmitProfile)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       {/* Username */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -698,11 +376,11 @@ const Profile = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-4 pt-4">
+                    <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:gap-4">
                       <button
                         type="submit"
                         disabled={isUpdatingProfile}
-                        className="bg-blue-500 text-white px-8 py-3 rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center space-x-2 font-medium"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-8 py-3 font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50 sm:w-auto"
                       >
                         {isUpdatingProfile ? (
                           <>
@@ -720,7 +398,7 @@ const Profile = () => {
                         type="button"
                         onClick={handleCancelEdit}
                         disabled={isUpdatingProfile}
-                        className="bg-gray-200 text-gray-700 px-8 py-3 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 flex items-center space-x-2 font-medium"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-200 px-8 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-300 disabled:opacity-50 sm:w-auto"
                       >
                         <X className="h-5 w-5" />
                         <span>Cancel</span>
@@ -730,12 +408,12 @@ const Profile = () => {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  <div className="flex items-center space-x-3 mb-6">
+                  <div className="mb-6 flex items-center gap-3">
                     <User className="h-6 w-6 text-blue-500" />
                     <h3 className="text-xl font-semibold text-gray-900">Profile Information</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
                     <div className="space-y-6">
                       <h4 className="text-lg font-medium text-gray-900 border-b border-gray-200 pb-2">Personal Information</h4>
                       <div className="space-y-4">
@@ -784,26 +462,26 @@ const Profile = () => {
                 <h3 className="text-xl font-semibold text-gray-900">Your Cooking Journey</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 text-center border border-blue-200">
+              <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:gap-6">
+                <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-5 text-center sm:p-6">
                   <ChefHat className="h-10 w-10 text-blue-500 mx-auto mb-3" />
                   <div className="text-3xl font-bold text-blue-600">{stats?.totalRecipes || 0}</div>
                   <div className="text-sm text-blue-700 font-medium">Total Recipes</div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 text-center border border-red-200">
+                <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-red-100 p-5 text-center sm:p-6">
                   <Heart className="h-10 w-10 text-red-500 mx-auto mb-3" />
                   <div className="text-3xl font-bold text-red-600">{stats?.favorites || 0}</div>
                   <div className="text-sm text-red-700 font-medium">Favorites</div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 text-center border border-green-200">
+                <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-green-100 p-5 text-center sm:p-6">
                   <TrendingUp className="h-10 w-10 text-green-500 mx-auto mb-3" />
                   <div className="text-3xl font-bold text-green-600">{stats?.thisWeek || 0}</div>
                   <div className="text-sm text-green-700 font-medium">This Week</div>
                 </div>
                 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 text-center border border-purple-200">
+                <div className="rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 p-5 text-center sm:p-6">
                   <Clock className="h-10 w-10 text-purple-500 mx-auto mb-3" />
                   <div className="text-3xl font-bold text-purple-600">{stats?.totalCookTime || '0h'}</div>
                   <div className="text-sm text-purple-700 font-medium">Cook Time</div>
@@ -816,8 +494,8 @@ const Profile = () => {
                   <Award className="h-5 w-5 mr-2 text-yellow-500" />
                   Achievements
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-xl border border-yellow-200">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="flex items-center gap-4 rounded-xl border border-yellow-200 bg-gradient-to-r from-yellow-50 to-yellow-100 p-4">
                     <Trophy className="h-8 w-8 text-yellow-500 flex-shrink-0" />
                     <div>
                       <div className="font-semibold text-yellow-800">First Recipe</div>
@@ -826,7 +504,7 @@ const Profile = () => {
                   </div>
                   
                   {(stats?.totalRecipes >= 10) && (
-                    <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200">
+                    <div className="flex items-center gap-4 rounded-xl border border-green-200 bg-gradient-to-r from-green-50 to-green-100 p-4">
                       <Sparkles className="h-8 w-8 text-green-500 flex-shrink-0" />
                       <div>
                         <div className="font-semibold text-green-800">Recipe Collector</div>
@@ -836,7 +514,7 @@ const Profile = () => {
                   )}
                   
                   {(stats?.favorites >= 5) && (
-                    <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl border border-red-200">
+                    <div className="flex items-center gap-4 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-red-100 p-4">
                       <Heart className="h-8 w-8 text-red-500 flex-shrink-0" />
                       <div>
                         <div className="font-semibold text-red-800">Recipe Lover</div>
@@ -846,7 +524,7 @@ const Profile = () => {
                   )}
                   
                   {(stats?.totalRecipes >= 25) && (
-                    <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200">
+                    <div className="flex items-center gap-4 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-purple-100 p-4">
                       <ChefHat className="h-8 w-8 text-purple-500 flex-shrink-0" />
                       <div>
                         <div className="font-semibold text-purple-800">Master Chef</div>
@@ -862,7 +540,7 @@ const Profile = () => {
           {/* Security Tab */}
           {activeTab === 'security' && (
             <div className="space-y-8">
-              <div className="flex items-center space-x-3 mb-6">
+              <div className="mb-6 flex items-center gap-3">
                 <Lock className="h-6 w-6 text-green-500" />
                 <h3 className="text-xl font-semibold text-gray-900">Security Settings</h3>
               </div>
@@ -951,7 +629,7 @@ const Profile = () => {
                   <button
                     type="submit"
                     disabled={isChangingPassword}
-                    className="bg-green-500 text-white px-8 py-3 rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2 font-medium"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 px-8 py-3 font-medium text-white transition-colors hover:bg-green-600 disabled:opacity-50 sm:w-auto"
                   >
                     {isChangingPassword ? (
                       <>
@@ -978,8 +656,8 @@ const Profile = () => {
                 <h3 className="text-xl font-semibold text-gray-900">Danger Zone</h3>
               </div>
               
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-                <div className="flex items-center space-x-3 mb-4">
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 sm:p-6">
+                <div className="mb-4 flex items-center gap-3">
                   <AlertTriangle className="h-6 w-6 text-red-600" />
                   <h4 className="font-semibold text-red-800">Account Deletion</h4>
                 </div>
@@ -989,8 +667,8 @@ const Profile = () => {
               </div>
 
               {/* Delete Account */}
-              <div className="border border-red-300 rounded-xl p-8 bg-red-50">
-                <div className="flex items-start justify-between">
+              <div className="rounded-xl border border-red-300 bg-red-50 p-4 sm:p-8">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1">
                     <h4 className="font-semibold text-red-900 mb-2 text-lg">Delete Account</h4>
                     <div className="text-sm text-red-600 mb-4">
@@ -1009,7 +687,7 @@ const Profile = () => {
                   <button
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={isDeletingAccount}
-                    className="ml-6 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center space-x-2 disabled:opacity-50 flex-shrink-0 font-medium"
+                    className="inline-flex w-full flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:ml-6 sm:w-auto"
                   >
                     <UserX className="h-5 w-5" />
                     <span>Delete Account</span>
@@ -1027,8 +705,8 @@ const Profile = () => {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowDeleteDialog(false)} />
 
-            <div className="inline-block w-full max-w-md p-8 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl">
-              <div className="flex items-center justify-between mb-6">
+            <div className="inline-block w-full max-w-md overflow-hidden rounded-2xl bg-white p-5 text-left align-middle shadow-2xl transition-all transform sm:my-8 sm:p-8">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <h3 className="text-xl font-semibold text-gray-900">Delete Account</h3>
                 <button
                   onClick={() => setShowDeleteDialog(false)}
@@ -1064,18 +742,18 @@ const Profile = () => {
                   disabled={isDeletingAccount}
                 />
 
-                <div className="flex space-x-4 pt-4">
+                <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:gap-4">
                   <button
                     onClick={() => setShowDeleteDialog(false)}
                     disabled={isDeletingAccount}
-                    className="flex-1 px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-xl hover:bg-gray-200 disabled:opacity-50"
+                    className="flex-1 rounded-xl border border-gray-300 bg-gray-100 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDeleteAccount}
                     disabled={isDeletingAccount || !deletePassword}
-                    className="flex-1 px-6 py-3 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                   >
                     {isDeletingAccount ? (
                       <>
@@ -1098,30 +776,3 @@ const Profile = () => {
 
 export default Profile
 
-/*
- * CORS ISSUE RESOLUTION SUMMARY:
- * 
- * The frontend now attempts to fetch profile images through an API endpoint first,
- * which bypasses CORS restrictions. If that fails, it falls back to direct URLs.
- * 
- * TO COMPLETELY RESOLVE THE CORS ISSUE, choose ONE of these backend solutions:
- * 
- * OPTION 1: Add the profile image API route (recommended)
- * - See the comment at the top of this file for the exact code
- * 
- * OPTION 2: Configure CORS for uploads folder
- * - Add this to your backend server setup:
- *   app.use('/uploads', cors({ 
- *     origin: 'http://localhost:5173', 
- *     credentials: true 
- *   }), express.static('uploads'));
- * 
- * OPTION 3: Global CORS configuration
- * - Configure your backend CORS to allow localhost:5173
- *   app.use(cors({ 
- *     origin: ['http://localhost:5173', 'http://localhost:3000'], 
- *     credentials: true 
- *   }));
- * 
- * The frontend will work with any of these backend solutions.
- */

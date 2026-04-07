@@ -613,15 +613,15 @@ const ShoppingList = () => {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Shopping Lists</h1>
-            <p className="text-gray-600">Organize your grocery shopping</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Shopping Lists</h1>
+            <p className="text-sm text-gray-600 sm:text-base">Organize your grocery shopping</p>
           </div>
           
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-white transition-colors hover:bg-orange-600 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>New List</span>

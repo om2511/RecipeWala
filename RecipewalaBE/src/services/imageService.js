@@ -1,34 +1,41 @@
-// RecipewalaBE/src/services/imageService.js - Replace your existing imageService.js
-
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// Updated ImageService.js with Pexels API replacing Unsplash
 
 class ImageService {
     constructor() {
-        this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        this.timeout = 30000; // 30 seconds
         this.maxRetries = 3;
-        this.timeout = 15000; // 15 seconds timeout per API call
+        this.model = null;
+        this.initializeGemini();
     }
 
-    /**
-     * Create a timeout wrapper for promises
-     */
+    async initializeGemini() {
+        try {
+            const { GoogleGenerativeAI } = await import('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            console.log('✅ Gemini AI initialized successfully');
+        } catch (error) {
+            console.error('❌ Failed to initialize Gemini AI:', error);
+        }
+    }
+
     withTimeout(promise, timeoutMs) {
         return Promise.race([
             promise,
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+                setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
             )
         ]);
     }
 
-    /**
-     * Generate an image prompt for a recipe using Gemini
-     */
     async generateImagePrompt(recipeName, recipeDescription = '') {
+        if (!this.model) {
+            throw new Error('Gemini AI not initialized');
+        }
+
         try {
             const prompt = `
-                Create a detailed, appetizing image prompt for the recipe: "${recipeName}"
+                Create a detailed, professional food photography prompt for: "${recipeName}"
                 ${recipeDescription ? `Description: ${recipeDescription}` : ''}
                 
                 Generate a photorealistic prompt that includes:
@@ -55,56 +62,89 @@ class ImageService {
     }
 
     /**
-     * Generate recipe image using Unsplash API (free alternative)
+     * Generate recipe image using Pexels API (free alternative with better quality than Unsplash)
      */
-    async generateRecipeImageUnsplash(recipeName) {
-        if (!process.env.UNSPLASH_ACCESS_KEY) {
-            console.log('Unsplash API key not configured');
+    async generateRecipeImagePexels(recipeName) {
+        if (!process.env.PEXELS_API_KEY) {
+            console.log('Pexels API key not configured');
             return null;
         }
 
         try {
-            const searchQuery = recipeName.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '+');
-            const unsplashUrl = `https://api.unsplash.com/search/photos?query=${searchQuery}+food&per_page=1&client_id=${process.env.UNSPLASH_ACCESS_KEY}`;
+            // Create a more specific search query for better results
+            const searchQuery = this.createPexelsSearchQuery(recipeName);
+            const pexelsUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=5&orientation=landscape`;
             
-            console.log(`Fetching image from Unsplash for: ${recipeName}`);
+            console.log(`Fetching image from Pexels for: ${recipeName} (Query: ${searchQuery})`);
             
             const response = await this.withTimeout(
-                fetch(unsplashUrl, {
+                fetch(pexelsUrl, {
                     headers: {
-                        'Accept': 'application/json',
-                        'Accept-Version': 'v1'
+                        'Authorization': process.env.PEXELS_API_KEY,
+                        'Accept': 'application/json'
                     }
                 }),
                 this.timeout
             );
 
             if (!response.ok) {
-                throw new Error(`Unsplash API error: ${response.status} ${response.statusText}`);
+                throw new Error(`Pexels API error: ${response.status} ${response.statusText}`);
             }
             
             const data = await response.json();
             
-            if (data.results && data.results.length > 0) {
-                console.log(`Image found on Unsplash for: ${recipeName}`);
+            if (data.photos && data.photos.length > 0) {
+                // Select the best photo (first one is usually highest quality)
+                const selectedPhoto = data.photos[0];
+                
+                console.log(`Image found on Pexels for: ${recipeName}`);
                 return {
-                    imageUrl: data.results[0].urls.regular,
-                    thumbnailUrl: data.results[0].urls.small,
+                    imageUrl: selectedPhoto.src.large,
+                    thumbnailUrl: selectedPhoto.src.medium,
+                    generated: false,
                     attribution: {
-                        photographer: data.results[0].user.name,
-                        photographerUrl: data.results[0].user.links.html,
-                        unsplashUrl: data.results[0].links.html,
-                        source: 'unsplash'
+                        photographer: selectedPhoto.photographer,
+                        photographerUrl: selectedPhoto.photographer_url,
+                        pexelsUrl: selectedPhoto.url,
+                        source: 'pexels'
                     }
                 };
             }
             
-            console.log(`No image found on Unsplash for: ${recipeName}`);
+            console.log(`No image found on Pexels for: ${recipeName}`);
             return null;
         } catch (error) {
-            console.error(`Error fetching image from Unsplash for ${recipeName}:`, error.message);
+            console.error(`Error fetching image from Pexels for ${recipeName}:`, error.message);
             return null;
         }
+    }
+
+    /**
+     * Create optimized search query for Pexels
+     */
+    createPexelsSearchQuery(recipeName) {
+        // Remove special characters and normalize
+        let query = recipeName.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Add food-related keywords for better results
+        const foodKeywords = ['food', 'dish', 'meal', 'cuisine'];
+        
+        // Check if query already contains food-related terms
+        const hasFoodTerm = foodKeywords.some(keyword => query.includes(keyword));
+        
+        if (!hasFoodTerm) {
+            query += ' food';
+        }
+
+        // Limit query length for better API performance
+        if (query.length > 50) {
+            query = query.substring(0, 47) + '...';
+        }
+
+        return query;
     }
 
     /**
@@ -202,16 +242,16 @@ class ImageService {
                     }
                 }
 
-                // Option 2: Try Unsplash (free, real photos)
-                if (process.env.UNSPLASH_ACCESS_KEY && !imageResult) {
+                // Option 2: Try Pexels (free, high-quality stock photos)
+                if (process.env.PEXELS_API_KEY && !imageResult) {
                     try {
-                        imageResult = await this.generateRecipeImageUnsplash(recipeName);
+                        imageResult = await this.generateRecipeImagePexels(recipeName);
                         if (imageResult) {
-                            console.log(`✅ Image found using Unsplash for: ${recipeName}`);
+                            console.log(`✅ Image found using Pexels for: ${recipeName}`);
                             return imageResult;
                         }
-                    } catch (unsplashError) {
-                        console.warn(`Unsplash failed for ${recipeName}:`, unsplashError.message);
+                    } catch (pexelsError) {
+                        console.warn(`Pexels failed for ${recipeName}:`, pexelsError.message);
                     }
                 }
 
@@ -244,7 +284,7 @@ class ImageService {
     async checkServiceAvailability() {
         const services = {
             openai: !!process.env.OPENAI_API_KEY,
-            unsplash: !!process.env.UNSPLASH_ACCESS_KEY,
+            pexels: !!process.env.PEXELS_API_KEY,
             gemini: !!process.env.GEMINI_API_KEY
         };
 

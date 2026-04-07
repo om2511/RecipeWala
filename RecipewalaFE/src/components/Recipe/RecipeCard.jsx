@@ -191,7 +191,7 @@ const RecipeCard = ({
                   <Eye className="h-3 w-3" />
                   <span className="text-sm">View</span>
                 </button>
-                <button
+                {/* <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onEdit()
@@ -201,7 +201,7 @@ const RecipeCard = ({
                 >
                   <Edit className="h-3 w-3" />
                   <span className="text-sm">Edit</span>
-                </button>
+                </button> */}
                 {!recipe?.imageGenerated && (
                   <button
                     onClick={(e) => {

@@ -191,13 +191,35 @@ tail -f logs/combined.log
 
 ## Production Deployment
 
-1. Set `NODE_ENV=production`
-2. Use strong JWT secrets (32+ characters)
-3. Configure proper MongoDB URI
-4. Set up reverse proxy (nginx)
-5. Enable SSL/TLS
-6. Configure log rotation
-7. Set up monitoring
+### Recommended stack
+- Frontend: Vercel
+- Backend: Render
+- Database: MongoDB Atlas
+
+### Backend deployment on Render
+1. Push the backend to GitHub.
+2. Create a new Render Web Service and connect the repo.
+3. Set the root directory to `RecipewalaBE`.
+4. Use the build/start commands:
+   - Build: `npm install`
+   - Start: `npm start`
+5. Add these environment variables in Render:
+   - `NODE_ENV=production`
+   - `PORT=10000` or let Render assign the port
+   - `MONGODB_URI=<your MongoDB Atlas connection string>`
+   - `JWT_SECRET=<strong secret>`
+   - `JWT_REFRESH_SECRET=<strong secret>`
+   - `JWT_EXPIRE=15m`
+   - `JWT_REFRESH_EXPIRE=7d`
+   - `GEMINI_API_KEY=<your Gemini key>`
+   - `FRONTEND_URL=<your Vercel frontend URL>`
+6. Deploy and verify `GET /api/health` returns success.
+
+### Pre-deploy checklist
+1. Make sure `MONGODB_URI` points to MongoDB Atlas.
+2. Make sure the frontend API base URL points to the deployed backend.
+3. Confirm Gemini and JWT secrets are set in Render.
+4. Verify the backend accepts your Vercel domain in CORS.
 
 ## Contributing
 

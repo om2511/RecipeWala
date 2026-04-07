@@ -268,14 +268,14 @@ const RecipeList = () => {
   if (safeRecipes.length === 0) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Recipes</h1>
-            <p className="text-gray-600">No recipes in your collection yet</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">My Recipes</h1>
+            <p className="text-sm text-gray-600 sm:text-base">No recipes in your collection yet</p>
           </div>
           <button
             onClick={() => navigate('/generate')}
-            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-white transition-colors hover:bg-orange-600 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>Generate Recipe</span>
@@ -289,10 +289,10 @@ const RecipeList = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Recipes</h1>
-          <div className="flex items-center space-x-4 text-sm text-gray-600">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between lg:items-center">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">My Recipes</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
             <span>
               {filteredAndSortedRecipes.length} of {safeRecipes.length} recipes
               {searchTerm && ` matching "${searchTerm}"`}
@@ -304,18 +304,18 @@ const RecipeList = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 transition-colors hover:bg-gray-50 disabled:opacity-50"
             title="Refresh recipes"
           >
             <RefreshCw className={`h-4 w-4 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => navigate('/generate')}
-            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-white transition-colors hover:bg-orange-600 sm:flex-none"
           >
             <Plus className="h-4 w-4" />
             <span>New Recipe</span>
@@ -324,7 +324,7 @@ const RecipeList = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
         <div className="flex flex-col space-y-4">
           {/* Search Bar */}
           <div className="relative">
@@ -347,14 +347,14 @@ const RecipeList = () => {
           </div>
 
           {/* Filter and Sort Controls */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between lg:items-center">
             {/* Left side - Filter controls */}
             <div className="flex flex-wrap items-center gap-3">
               {/* Category Filter */}
               <div className="relative">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 transition-colors hover:bg-gray-50"
                 >
                   <Filter className="h-4 w-4" />
                   <span>Filters</span>
@@ -366,10 +366,10 @@ const RecipeList = () => {
                 </button>
 
                 {showFilters && (
-                  <div className="absolute left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-20">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="absolute left-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white p-4 shadow-lg sm:w-80">
+                    <div className="mb-4 flex items-start justify-between gap-3">
                       <h3 className="font-medium text-gray-900">Filter Recipes</h3>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         {activeFiltersCount > 0 && (
                           <button
                             onClick={clearAllFilters}
@@ -492,12 +492,12 @@ const RecipeList = () => {
             </div>
 
             {/* Right side - Sort control */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Sort by:</span>
+            <div className="flex items-center gap-2 sm:self-start lg:self-auto">
+              <span className="text-sm text-gray-600 whitespace-nowrap">Sort by:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="min-w-0 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
